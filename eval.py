@@ -68,7 +68,7 @@ def evaluate(method, preds, score, targets, args):
 
     detection_error = np.min(pi_in * (1 - tpr) + pi_ood * fpr)
     preds[in_score < thresholds[idx]] = ood_class
-    print(f'{method} AUROC: {auroc:.2f}, AUPR_IN: {aupr_in:.2f}, AUPR_OUT: {aupr_out:.2f}, FPR95: {fpr95:.2f}, Detection Error: {detection_error:.2f}')
+    print(f'{method} AUROC: {auroc*100:.4f}, AUPR_IN: {aupr_in*100:.4f}, AUPR_OUT: {aupr_out*100:.4f}, FPR95: {fpr95*100:.4f}, Detection Error: {detection_error*100:4f}')
     print("ID mean:", score[targets != ood_class].mean(), "OOD mean:", score[targets == ood_class].mean(), "accuracy:", accuracy_score(targets, preds))
     # print(classification_report(targets, preds, digits=4))
     return auroc, aupr_in, aupr_out, fpr95, detection_error
@@ -175,9 +175,6 @@ if __name__ == "__main__":
     model.eval()
     model.cuda()
 
-    state_dict = torch.load(args.pretrained_model_path, map_location="cpu")
-    model.load_state_dict(state_dict, strict=False)
-
     # DATASETS
     train_transform, ood_transform, test_transform = get_transform(args.transform, image_size=args.image_size, args=args)
     train_dataset, _, test_dataset = get_datasets(args.dataset_name, train_transform, ood_transform, test_transform, args)
@@ -186,22 +183,44 @@ if __name__ == "__main__":
     # DATALOADERS
     # --------------------
     train_loader = DataLoader(train_dataset, num_workers=args.num_workers, batch_size=args.batch_size, shuffle=False,
-                              sampler=None, drop_last=True, pin_memory=True)
+                                sampler=None, drop_last=True, pin_memory=True)
     test_loader = DataLoader(test_dataset, num_workers=args.num_workers,
-                                      batch_size=128, shuffle=False, pin_memory=False)
-    
-    # ----------------------
-    # EVAL
-    # ----------------------
-    centers, avg_conf, global_mean, global_std, inv_cov = compute_class_centers(
-        model, 
-        train_loader, 
-        num_classes=args.num_ctgs, 
-        temperature=0.1, 
-        eps=1e-8,
-        normalize=True,
-        use_bb=args.use_bb,
-        device=device)
+                                        batch_size=128, shuffle=False, pin_memory=False)
+
+    state_dict = torch.load(args.pretrained_model_path, map_location="cpu",weights_only=False)
+
+    if not "model_state_dict" in state_dict:
+        model.load_state_dict(state_dict, strict=False)
+        
+        # ----------------------
+        # EVAL
+        # ----------------------
+        centers, avg_conf, global_mean, global_std, inv_cov = compute_class_centers(
+            model, 
+            train_loader, 
+            num_classes=args.num_ctgs, 
+            temperature=0.1, 
+            eps=1e-8,
+            normalize=True,
+            use_bb=args.use_bb,
+            device=device)
+        
+        checkpoint = {
+            "model_state_dict": state_dict,
+            "centers": centers,
+            "avg_conf": avg_conf,
+            "global_mean": global_mean,
+            "global_std": global_std,
+            "inv_cov": inv_cov,
+        }
+        torch.save(checkpoint, args.pretrained_model_path)
+    else: 
+        model.load_state_dict(state_dict["model_state_dict"])
+        centers = state_dict["centers"].to(device)
+        avg_conf = state_dict["avg_conf"]
+        global_mean = state_dict["global_mean"].to(device)
+        global_std = state_dict["global_std"].to(device)
+        inv_cov = state_dict["inv_cov"].to(device)
     
     test(model, test_loader,  
         centers=centers, 

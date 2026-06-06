@@ -12,6 +12,8 @@ isun_root = './dataset/iSUN'
 imagenet_crop_root = './dataset/Imagenet_crop'
 imagenet_resize_root = './dataset/Imagenet_resize'
 places365_root = './dataset/places365'
+Flowers102_root = './dataset/OXFlowers102'
+OxfordIIITPet_root = './dataset/OxfordIIITPet'
 
 center_path = './dataset/class_centers.pt'
 avg_conf_path = './dataset/avg_conf.pt'

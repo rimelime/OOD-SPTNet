@@ -13,6 +13,7 @@ from data.imagenet import get_imagenet_100_datasets, get_imagenet_1k_datasets
 from data.stanford_cars import get_scars_datasets
 from data.cub import get_cub_datasets
 from data.fgvc_aircraft import get_aircraft_datasets
+from data.standford import get_standford_Pet_datasets
 from data.ood import getood_datasets
 
 
@@ -24,7 +25,8 @@ get_dataset_funcs = {
     'herbarium_19': get_herbarium_datasets,
     'cub': get_cub_datasets,
     'aircraft': get_aircraft_datasets,
-    'scars': get_scars_datasets
+    'scars': get_scars_datasets,
+    'ox_pet': get_standford_Pet_datasets
 }
 
 
@@ -52,7 +54,8 @@ def get_datasets(dataset_name, train_transform, ood_transform, test_transform, a
     test_dataset = datasets['test']
     ood_test_dataset = getood_datasets(test_transform, ood_index=len(args.train_classes), 
                                        offset=len(test_dataset), args=args, sample_num=10000)
-    test_dataset = ConcatDataset([test_dataset, ood_test_dataset])
+    if ood_test_dataset:
+        test_dataset = ConcatDataset([test_dataset, ood_test_dataset])
     return train_dataset, ood_train_dataset, test_dataset
 
 
@@ -96,6 +99,12 @@ def get_class_splits(args):
         args.image_size = 224
         args.train_classes = range(50)
         args.unlabeled_classes = range(50, 100)
+
+    elif args.dataset_name == 'ox_pet':
+
+        args.image_size = 224
+        args.train_classes = range(37)
+        args.unlabeled_classes = []
 
     elif args.dataset_name == 'imagenet_1k':
 

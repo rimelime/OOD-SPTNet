@@ -1,10 +1,10 @@
-from torchvision.datasets import SVHN, DTD, LSUN, Places365, ImageFolder
+from torchvision.datasets import SVHN, DTD, LSUN, Places365, ImageFolder, Flowers102
 from torch.utils.data import Subset, Dataset
 from copy import deepcopy
 import numpy as np
 import os
 from PIL import Image
-from config import svhn_root, dtd_root, lsun_root, isun_root, places365_root, imagenet_crop_root, imagenet_resize_root
+from config import svhn_root, dtd_root, lsun_root, isun_root, places365_root, imagenet_crop_root, imagenet_resize_root, Flowers102_root
 
 class CustomSVHN(SVHN):
     def __init__(self, offset=0, ood_index=None, *args, **kwargs):
@@ -33,6 +33,20 @@ class CustomDTD(DTD):
         return img, label, uq_idx
     def __len__(self):
         return len(self._labels)
+    
+class CustomOXFLOWER(Flowers102):
+    def __init__(self, offset=0, ood_index=None, *args, **kwargs):
+        super(CustomOXFLOWER, self).__init__(*args, **kwargs)
+        self.ood_label = ood_index
+        self.uq_idxs = np.arange(len(self)) + offset
+    def __getitem__(self, item):
+        img, label = super().__getitem__(item)
+        if self.ood_label is not None:
+            label = self.ood_label
+        uq_idx = self.uq_idxs[item]
+        return img, label, uq_idx
+    # def __len__(self):
+    #     return len(self.labels)
 
 class ImageDataset(Dataset):
     def __init__(self, datadir, transform=None, offset=0, ood_index=0):
@@ -102,13 +116,16 @@ def getood_datasets(ood_transform, ood_index, offset, args, sample_num=10000):
         ood_dataset = ImageDataset(lsun_root, ood_transform, offset, ood_index)
     elif args.ood_dataset_name == 'isun':
         ood_dataset = ImageDataset(isun_root, ood_transform, offset, ood_index)
-    elif args.ood_dataset_name == 'imagenet_C':
+    elif args.ood_dataset_name == 'imagenet_c':
         # ood_dataset = ImageFolder(imagenet_crop_root, transform=ood_transform)
         ood_dataset = ImageDataset(imagenet_crop_root, ood_transform, offset, ood_index)
     elif args.ood_dataset_name == 'imagenet_r':
         ood_dataset = ImageDataset(imagenet_resize_root, ood_transform, offset, ood_index)
+    elif args.ood_dataset_name == 'ox_flower':
+        ood_dataset = CustomOXFLOWER(root=Flowers102_root, split='test', download=True, transform=ood_transform, offset=offset, ood_index=ood_index)
     elif args.ood_dataset_name == 'places365':
-        ood_dataset = CustomPlaces365_v2(root=places365_root, transform=ood_transform, maxdata=10000, offset=offset, ood_index=ood_index)
+        ood_dataset = CustomPlaces365_v2(root=places365_root, split='test', download=True, transform=ood_transform, maxdata=10000, offset=offset, ood_index=ood_index)
+    elif args.ood_dataset_name == None: return
     else:
         raise ValueError(f"Invalid OOD dataset name: {args.ood_dataset_name}")
     return ood_dataset

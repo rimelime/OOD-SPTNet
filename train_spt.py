@@ -294,7 +294,9 @@ if __name__ == "__main__":
         checkpoint = torch.load(args.pretrained_model_path, map_location='cpu')
         classifier = nn.Sequential(backbone, projector).cuda()
         model = nn.Sequential(prompter, classifier).cuda()
-        model.load_state_dict(checkpoint)
+        if "model_state_dict" in checkpoint:
+            model.load_state_dict(checkpoint["model_state_dict"])
+        else: model.load_state_dict(checkpoint)
     else:
         state_dict = torch.load(args.pretrained_model_path, map_location='cpu')
         backbone.load_state_dict(state_dict)
